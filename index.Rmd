@@ -1,0 +1,104 @@
+---
+title: "Fitting Logistic Regression with Aggregate Data in R"
+subtitle: "Example Using Simulated Migration Data"
+author: "Francisco Rowe"
+date: "`r Sys.Date()`"
+output: tint::tintHtml
+bibliography: skeleton.bib
+link-citations: yes
+---
+
+```{r setup, include=FALSE}
+library(tint)
+# invalidate cache when the package version changes
+knitr::opts_chunk$set(tidy = FALSE, cache.extra = packageVersion('tint'))
+options(htmltools.dir.version = FALSE)
+```
+
+# Aim
+
+This notebook illustrates three ways to estimate a logistic regression model based on individual-level data and aggregate data and arrive to the same model estimates. 
+
+# Dependencies
+
+```{r}
+library(tidyverse)
+```
+
+
+# Data
+
+For the purposes of this notebook, let's assume we are interested in fitting a migration model and we start with individual level data. We assume that the decision to migration is a function of `gender` and `age`. The decision to migrate is captured with a binary variable: 1 if an individual migrated in the last year; 0 otherwise. Here we use simulated data so let's hope that our estimates will be representative of a real migration process.
+
+```{r}
+rm(list=ls())
+set.seed(5)
+df <- tibble(gender = as.factor(sample(c("male","female"), 
+                                       300, 
+                                       replace = TRUE, 
+                                       prob=c(0.6, 0.4))),
+           age_bracket = as.factor(sample(c("[15<25]","[25-45]", "[45-65]"), 
+                                          300, 
+                                          replace = TRUE, 
+                                          prob=c(0.35, 0.55, 0.1))),
+           migrate = rbinom(300, 
+                             1, 
+                             prob = 0.2))
+
+df
+```
+
+
+# Logistic Regression on Individual-Level Data
+
+Let's first a logistic regression on individual level data
+
+```{r}
+eq1 <- migrate ~ gender + age_bracket
+m1 <- glm(eq1, data = df, family = binomial("logit"))
+summary(m1)
+```
+
+# Logistic Regression on Aggregate Data
+
+Now let's fit the same model on aggregate data. To this end, we first need to aggregate the data:
+
+```{r}
+df_agg<-df %>% group_by(gender, age_bracket) %>%
+  summarise( pop_count = n(), 
+             moves = sum(migrate)) %>%
+  ungroup() %>% 
+  mutate(prob_mig = moves / pop_count)
+
+df_agg
+```
+
+Let's now estimate the model:
+
+```{r}
+eq2 <- prob_mig ~ gender + age_bracket
+m2 <- glm(eq2,
+          data=df_agg,
+          weights = pop_count, 
+          family = binomial("logit"))
+summary(m2)
+```
+
+Compare these estimates to our individual-level model and note that we arrive to the same model estimates!
+
+# Logistic Regression Using cbind
+
+Let's try a second alternative and use `cbind`. It is useful to know this if you ever want to fit a multinomial logistic model in R using the package [`VGAM`](https://cran.r-project.org/web/packages/VGAM/index.html)
+
+```{r}
+df_agg$stayers <- df_agg$pop_count - df_agg$moves
+
+eq3 <- cbind(moves, stayers) ~ gender + age_bracket
+
+m3 <- glm(eq3, 
+          data = df_agg,
+          family = binomial("logit"))
+summary(m3)
+```
+
+For more on logistic regression, check out this course: [Introduction to Statistical Learning in R](https://fcorowe.github.io/sl/)

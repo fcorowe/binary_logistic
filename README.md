@@ -1,4 +1,4 @@
-# Fitting Logistic Regression with Aggregate Data in R
+# Fitting A Logistic Regression with Aggregate Data in R
 
 [Francisco Rowe](http://www.franciscorowe.com) [[`@fcorowe`](http://twitter.com/fcorowe)]
 
